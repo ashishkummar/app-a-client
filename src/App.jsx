@@ -5,27 +5,39 @@ export default function App() {
   const [userInfo, setUserInfo] = useState(null);
 
   const handleLogin = () => {
+    const clientId = "appA";
+    const redirectUri = `${window.location.origin}/callback`;
+
     window.open(
-      `https://ssowebsite-popup.vercel.app/?client_id=appA&redirect_uri=${window.location.origin}`,
+      `https://sso-popup-client.vercel.app/?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`,
       "SSO_Popup",
       "width=500,height=600"
     );
   };
 
   useEffect(() => {
-    window.addEventListener("message", async (event) => {
-      if (
-        event.origin === "https://ssowebsite-popup.vercel.app" ||
-        event.origin.includes("railway.app")
-      ) {
-        const { token } = event.data;
-        setToken(token);
+    const handleMessage = async (event) => {
+      // Ensure it's from trusted origin
+      const allowedOrigins = [
+        "https://sso-popup-client.vercel.app",
+        "https://ssoserver-production.up.railway.app"
+      ];
+      if (!allowedOrigins.includes(event.origin)) return;
 
-        // Call backend or decode token (for demo decode here)
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUserInfo(payload);
+      const { token } = event.data;
+      if (token) {
+        setToken(token);
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          setUserInfo(payload);
+        } catch (err) {
+          console.error("Invalid token received", err);
+        }
       }
-    });
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   return (
